@@ -8,6 +8,10 @@
         {
             "name": "Fabien Potencier",
             "email": "fabien@symfony.com"
+        },
+        {
+            "name": "Ghislain Flandin",
+            "email": "ghislain@bigyouth.fr"
         }
     ],
     "require": {
