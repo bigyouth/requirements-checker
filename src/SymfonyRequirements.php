@@ -17,10 +17,11 @@ namespace Symfony\Requirements;
  *
  * @author Tobias Schultze <http://tobion.de>
  * @author Fabien Potencier <fabien@symfony.com>
+ * @author Fabien Potencier <fabien@symfony.com>
  */
 class SymfonyRequirements extends RequirementCollection
 {
-    const REQUIRED_PHP_VERSION = '5.5.9';
+    const REQUIRED_PHP_VERSION = '7.2.8';
 
     public function __construct($rootDir)
     {
@@ -30,6 +31,8 @@ class SymfonyRequirements extends RequirementCollection
 
         $rootDir = $this->getComposerRootDir($rootDir);
         $options = $this->readComposer($rootDir);
+        $appEnv = getenv('APP_ENV') ?? 'dev';
+
 
         $this->addRequirement(
             version_compare($installedPhpVersion, self::REQUIRED_PHP_VERSION, '>='),
@@ -44,7 +47,7 @@ class SymfonyRequirements extends RequirementCollection
             is_dir($rootDir.'/vendor/composer'),
             'Vendor libraries must be installed',
             'Vendor libraries are missing. Install composer following instructions from <a href="http://getcomposer.org/">http://getcomposer.org/</a>. '.
-                'Then run "<strong>php composer.phar install</strong>" to install them.'
+            'Then run "<strong>php composer.phar install</strong>" to install them.'
         );
 
         if (is_dir($cacheDir = $rootDir.'/'.$options['var-dir'].'/cache')) {
@@ -143,23 +146,35 @@ class SymfonyRequirements extends RequirementCollection
             );
         }
 
-        if (extension_loaded('xdebug')) {
-            $this->addPhpConfigRequirement(
-                'xdebug.show_exception_trace', false, true
-            );
+        if ($appEnv !== 'prod' ) {
+            if (extension_loaded('xdebug')) {
+                $this->addPhpConfigRequirement(
+                    'xdebug.show_exception_trace', false, true
+                );
 
-            $this->addPhpConfigRequirement(
-                'xdebug.scream', false, true
-            );
+                $this->addPhpConfigRequirement(
+                    'xdebug.scream', false, true
+                );
 
+                $this->addPhpConfigRecommendation(
+                    'xdebug.max_nesting_level',
+                    function ($cfgValue) { return $cfgValue > 100; },
+                    true,
+                    'xdebug.max_nesting_level should be above 100 in php.ini',
+                    'Set "<strong>xdebug.max_nesting_level</strong>" to e.g. "<strong>250</strong>" in php.ini<a href="#phpini">*</a> to stop Xdebug\'s infinite recursion protection erroneously throwing a fatal error in your project.'
+                );
+            }
+        } else {
             $this->addPhpConfigRecommendation(
-                'xdebug.max_nesting_level',
-                function ($cfgValue) { return $cfgValue > 100; },
-                true,
-                'xdebug.max_nesting_level should be above 100 in php.ini',
-                'Set "<strong>xdebug.max_nesting_level</strong>" to e.g. "<strong>250</strong>" in php.ini<a href="#phpini">*</a> to stop Xdebug\'s infinite recursion protection erroneously throwing a fatal error in your project.'
+                'xdebug.enabled',
+                extension_loaded('xdebug'),
+                false,
+                'xdebug should be disabled',
+                'To increase platform performances, <strong>xdebug</strong> should be disabled in production mode.',
+                'To increase platform performances, xdebug should be disabled in production mode.'
             );
         }
+
 
         $pcreVersion = defined('PCRE_VERSION') ? (float) PCRE_VERSION : null;
 
@@ -315,13 +330,17 @@ class SymfonyRequirements extends RequirementCollection
 
         $this->addPhpConfigRecommendation('session.auto_start', false);
 
-        $this->addPhpConfigRecommendation(
-            'xdebug.max_nesting_level',
-            function ($cfgValue) { return $cfgValue > 100; },
-            true,
-            'xdebug.max_nesting_level should be above 100 in php.ini',
-            'Set "<strong>xdebug.max_nesting_level</strong>" to e.g. "<strong>250</strong>" in php.ini<a href="#phpini">*</a> to stop Xdebug\'s infinite recursion protection erroneously throwing a fatal error in your project.'
-        );
+        if ($appEnv !== 'prod' ) {
+            $this->addPhpConfigRecommendation(
+                'xdebug.max_nesting_level',
+                function ( $cfgValue ) {
+                    return $cfgValue > 100;
+                },
+                true,
+                'xdebug.max_nesting_level should be above 100 in php.ini',
+                'Set "<strong>xdebug.max_nesting_level</strong>" to e.g. "<strong>250</strong>" in php.ini<a href="#phpini">*</a> to stop Xdebug\'s infinite recursion protection erroneously throwing a fatal error in your project.'
+            );
+        }
 
         $this->addPhpConfigRecommendation(
             'post_max_size',
@@ -412,7 +431,7 @@ class SymfonyRequirements extends RequirementCollection
      *
      * @return int
      */
-    private function getPostMaxSize()
+    public function getPostMaxSize()
     {
         return $this->convertShorthandSize(ini_get('post_max_size'));
     }
@@ -422,7 +441,7 @@ class SymfonyRequirements extends RequirementCollection
      *
      * @return int
      */
-    private function getMemoryLimit()
+    public function getMemoryLimit()
     {
         return $this->convertShorthandSize(ini_get('memory_limit'));
     }
@@ -432,12 +451,12 @@ class SymfonyRequirements extends RequirementCollection
      *
      * @return int
      */
-    private function getUploadMaxFilesize()
+    public function getUploadMaxFilesize()
     {
         return $this->convertShorthandSize(ini_get('upload_max_filesize'));
     }
 
-    private function getComposerRootDir($rootDir)
+    public function getComposerRootDir($rootDir)
     {
         $dir = $rootDir;
         while (!file_exists($dir.'/composer.json')) {
@@ -474,4 +493,4 @@ class SymfonyRequirements extends RequirementCollection
 
         return $options;
     }
- }
+}
