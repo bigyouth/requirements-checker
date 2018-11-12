@@ -23,6 +23,7 @@ namespace Symfony\Requirements;
 class SymfonyRequirements extends RequirementCollection
 {
     const REQUIRED_PHP_VERSION = '7.2.8';
+    const REQUIRED_PHP_INI_MEMORY_LIMIT = 134217728; //128 MB
     const REQUIRED_MYSQL_VERSION = '5.7.0';
     const REQUIRED_MARIADB_VERSION = '10.2.7';
 
@@ -54,11 +55,11 @@ class SymfonyRequirements extends RequirementCollection
         );
         $this->addRequirement(
             $this->validateMySQLVersion(),
-            sprintf('MySQL version must be at least %s (%s installed)', self::REQUIRED_MYSQL_VERSION, $installedMySQLVersion),
-            sprintf('You are running MySQL version "<strong>%s</strong>", but application needs at least MySQL "<strong>%s</strong>" to run, if using .
-            Before using Symfony, upgrade your MySQL installation, preferably to the latest version.',
-                $installedMySQLVersion, self::REQUIRED_MYSQL_VERSION),
-            sprintf('Install MySQL %s or newer (installed version is %s)', self::REQUIRED_MYSQL_VERSION, $installedMySQLVersion)
+            sprintf('MySQL version must be at least %s for MySQL or at least %s for MariaDB (%s installed)', self::REQUIRED_MYSQL_VERSION, self::REQUIRED_MARIADB_VERSION, $installedMySQLVersion),
+            sprintf('You are running MySQL version "<strong>%s</strong>", but application needs at least MySQL "<strong>%s</strong>"  or MariaDB "<strong>%s</strong>" to run.
+            Before using the CMS, upgrade your MySQL installation, preferably to the latest version.',
+                $installedMySQLVersion, self::REQUIRED_MYSQL_VERSION, self::REQUIRED_MARIADB_VERSION),
+            sprintf('Install MySQL %s or MariaDB %s or newer (installed version is %s)', self::REQUIRED_MYSQL_VERSION, self::REQUIRED_MARIADB_VERSION, $installedMySQLVersion)
         );
 
         $this->addRequirement(
@@ -360,6 +361,12 @@ class SymfonyRequirements extends RequirementCollection
             );
         }
 
+        $this->addRequirement(
+            $this->getMemoryLimit() >= self::REQUIRED_PHP_INI_MEMORY_LIMIT,
+            sprintf('php.ini memory_limit value must be at least %s (%s set)', ((self::REQUIRED_PHP_INI_MEMORY_LIMIT)/1048576).'M', ($this->convertShorthandSize($this->getMemoryLimit())/1048576).'M'),
+            sprintf('Set memory_limit value in your php.ini file at least at %s ', ((self::REQUIRED_PHP_INI_MEMORY_LIMIT)/1048576).'M')
+        );
+
         $this->addPhpConfigRecommendation(
             'post_max_size',
             $this->getPostMaxSize() < $this->getMemoryLimit(),
@@ -545,8 +552,8 @@ class SymfonyRequirements extends RequirementCollection
     private function validateMySQLVersion() {
         $version = $this->getMySQLVersion();
 
-        if (strpos(strtolower($version), 'mariadb') !== false) {
-            return strpos($version, self::REQUIRED_MARIADB_VERSION) !== false || version_compare($version, self::REQUIRED_MARIADB_VERSION, '>=');
+        if (stripos(strtolower($version), 'mariadb') !== false) {
+            return stripos($version, self::REQUIRED_MARIADB_VERSION) !== false || version_compare($version, self::REQUIRED_MARIADB_VERSION, '>=');
         } else {
             return version_compare($version, self::REQUIRED_MYSQL_VERSION, '>=');
         }
