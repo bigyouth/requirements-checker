@@ -17,7 +17,8 @@ namespace Symfony\Requirements;
  *
  * @author Tobias Schultze <http://tobion.de>
  * @author Fabien Potencier <fabien@symfony.com>
- * @author Ghislain Flandin <ghislain@bigyouth.fr>
+ * @author Ghislain Flandin <ghislain.flandin@gmail.com>
+ * @author Pierre Grimaud <grimaud.pierre@gmail.com>
  */
 class SymfonyRequirements extends RequirementCollection
 {
