@@ -17,22 +17,25 @@ namespace Symfony\Requirements;
  *
  * @author Tobias Schultze <http://tobion.de>
  * @author Fabien Potencier <fabien@symfony.com>
- * @author Fabien Potencier <fabien@symfony.com>
+ * @author Ghislain Flandin <ghislain@bigyouth.fr>
  */
 class SymfonyRequirements extends RequirementCollection
 {
     const REQUIRED_PHP_VERSION = '7.2.8';
+    const REQUIRED_MYSQL_VERSION = '5.7.0';
+    const REQUIRED_MARIADB_VERSION = '10.2.7';
 
     public function __construct($rootDir)
     {
         /* mandatory requirements follow */
 
+        $appEnv = getenv('APP_ENV') ?? 'dev';
+
         $installedPhpVersion = phpversion();
+        $installedMySQLVersion = $this->getMySQLVersion();
 
         $rootDir = $this->getComposerRootDir($rootDir);
         $options = $this->readComposer($rootDir);
-        $appEnv = getenv('APP_ENV') ?? 'dev';
-
 
         $this->addRequirement(
             version_compare($installedPhpVersion, self::REQUIRED_PHP_VERSION, '>='),
@@ -41,6 +44,20 @@ class SymfonyRequirements extends RequirementCollection
             Before using Symfony, upgrade your PHP installation, preferably to the latest version.',
                 $installedPhpVersion, self::REQUIRED_PHP_VERSION),
             sprintf('Install PHP %s or newer (installed version is %s)', self::REQUIRED_PHP_VERSION, $installedPhpVersion)
+        );
+
+        $this->addRequirement(
+            $this->connectDatabase(),
+            sprintf('Application must be able to connect to MySQL database.'),
+            sprintf('Using .env identifiers, application must be able to connect to database')
+        );
+        $this->addRequirement(
+            $this->validateMySQLVersion(),
+            sprintf('MySQL version must be at least %s (%s installed)', self::REQUIRED_MYSQL_VERSION, $installedMySQLVersion),
+            sprintf('You are running MySQL version "<strong>%s</strong>", but application needs at least MySQL "<strong>%s</strong>" to run, if using .
+            Before using Symfony, upgrade your MySQL installation, preferably to the latest version.',
+                $installedMySQLVersion, self::REQUIRED_MYSQL_VERSION),
+            sprintf('Install MySQL %s or newer (installed version is %s)', self::REQUIRED_MYSQL_VERSION, $installedMySQLVersion)
         );
 
         $this->addRequirement(
@@ -492,5 +509,47 @@ class SymfonyRequirements extends RequirementCollection
         }
 
         return $options;
+    }
+
+    private function connectDatabase()
+    {
+        $identifiers = $this->splitDatabaseIdentifiers(getenv('DATABASE_URL'));
+        $link = mysqli_connect($identifiers['host'], $identifiers['user'], $identifiers['password'], $identifiers['database'], $identifiers['port']);
+        return mysqli_connect_errno() ? false : true;
+    }
+
+    private function splitDatabaseIdentifiers($str) {
+        preg_match("/mysql:\/\/(.*):(.*)@(.*):(.*)\/(.*)/", $str, $matches);
+        $result = [];
+        $result['user'] = $matches[1];
+        $result['password'] = $matches[2];
+        $result['host'] = $matches[3];
+        $result['port'] = $matches[4];
+        $result['database'] = $matches[5];
+        return $result;
+    }
+
+    private function getMySQLVersion() {
+        $identifiers = $this->splitDatabaseIdentifiers(getenv('DATABASE_URL'));
+        $link = mysqli_connect($identifiers['host'], $identifiers['user'], $identifiers['password'], $identifiers['database'], $identifiers['port']);
+
+        if ($result = $link->query("SELECT VERSION() AS 'version'")) {
+            while ($row = $result->fetch_assoc()) {
+                return $row['version'];
+            }
+        }
+        return $link->get_server_info();
+    }
+
+    private function validateMySQLVersion() {
+        $version = $this->getMySQLVersion();
+
+        if (strpos(strtolower($version), 'mariadb') !== false) {
+            return strpos($version, self::REQUIRED_MARIADB_VERSION) !== false || version_compare($version, self::REQUIRED_MARIADB_VERSION, '>=');
+        } else {
+            return version_compare($version, self::REQUIRED_MYSQL_VERSION, '>=');
+        }
+
+        return true;
     }
 }
